@@ -102,6 +102,7 @@ class DataGenerator():
 
         return obs, obs_normed, market_obs, market_obs_normed, future_ror, future_p, trade_masks, done
 
+
     def reset(self, start_point=None):
         """
         :param start_point:
@@ -116,7 +117,6 @@ class DataGenerator():
             self.cursor = np.array([self.test_idx])
         else:
             if len(self.tmp_order) == 0:
-                # self.tmp_order = self.order_set.copy()
                 self.tmp_order = np.random.permutation(self.order_set).copy()
             self.cursor = self.tmp_order[:min(self.batch_size, len(self.tmp_order))]
             self.tmp_order = self.tmp_order[min(self.batch_size, len(self.tmp_order)):]
@@ -124,12 +124,17 @@ class DataGenerator():
         obs, market_obs, future_return, past_return = self._get_data()
         obs_masks, future_return_masks = self._get_masks(obs, future_return)
         trade_masks = np.logical_or(obs_masks, future_return_masks)
+
+        # Substitua valores Inf por um valor fixo (por exemplo, 0)
+        obs[np.isinf(obs)] = 0.
+
         obs = self._fillna(obs, obs_masks)
 
         future_ror = np.prod((future_return + 1), axis=-1)
         future_ror[future_return_masks] = 0.
-        # future_p = self.__get_p(future_return)
+
         obs_normed = self.__normalize_assets(obs, obs_masks)
+
         if self.allow_short:
             market_obs_normed = self.__normalize_market(market_obs)
         else:
@@ -142,7 +147,10 @@ class DataGenerator():
             done = (self.cursor >= self.__assets_data.shape[1])
         else:
             done = (self.cursor >= self.val_idx).any()
-        assert not np.isnan(obs + obs_normed).any()
+
+        # Verifique se há NaN ou Inf após a normalização
+        assert not np.isnan(obs_normed).any(), 'obs_normed still contains NaNs after normalization'
+        assert not np.isinf(obs_normed).any(), 'obs_normed still contains Infs after normalization'
 
         obs, obs_normed = obs.astype(np.float32), obs_normed.astype(np.float32)
         if self.allow_short:
@@ -152,6 +160,7 @@ class DataGenerator():
 
         return obs, obs_normed, market_obs, market_obs_normed, future_ror, trade_masks, done
 
+
     def _get_data(self):
 
         raw_states = np.zeros(
@@ -159,11 +168,13 @@ class DataGenerator():
         assets_states = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.window_len, self.assets_features))
         if self.allow_short:
             market_states = np.zeros((len(self.cursor), self.window_len, self.market_features))
+            print('oi', market_states.shape)
         else:
             market_states = None
         future_return = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.trade_len))
         past_return = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.window_len))
         for i, idx in enumerate(self.cursor):
+            print('idx', idx)
             raw_states[i] = self.__assets_data[:, idx - (self.window_len + 1) * 5 + 1:idx + 1].copy()
             tmp_states = raw_states.reshape(raw_states.shape[0], raw_states.shape[1], self.window_len + 1, 5, -1)
             assets_states[i, :, :, 0] = tmp_states[i, :, 1:, -1, 0] / tmp_states[i, :, :-1, -1, 0]
@@ -176,28 +187,41 @@ class DataGenerator():
                 assets_states[i, :, :, 5] = np.nanmean(tmp_states[i, :, 1:, :, 5], axis=-1)
             if self.allow_short:
                 tmp_states = self.__market_data[idx - (self.window_len) * 5 + 1:idx + 1].reshape(self.window_len, 5, -1)
+                print('idx', idx)
+                print('i', i)
+                print('tmp_states', tmp_states)
+                print(self.__market_data)
+                tmp_states = tmp_states.astype(float)
                 market_states[i] = np.mean(tmp_states, axis=1)
             future_return[i] = self.__ror_data[:, idx + 1:min(idx + 1 + self.trade_len, self.__ror_data.shape[-1])]
             past_return[i] = self.__ror_data[:, idx - self.window_len + 1:idx + 1]
 
         return assets_states, market_states, future_return, past_return
 
+
     def _fillna(self, obs, masks):
         """
         :param obs: (batch, num_assets, window_len, features)
         :param masks: bool
-        :return:
+        :return: obs with NaNs filled
         """
         obs[masks] = 0.
 
         in_nan_assets = np.argwhere(np.isnan(np.sum(obs.reshape(obs.shape[0], obs.shape[1], -1), axis=-1)))
+
         for idx in in_nan_assets:
             tmp_df = pd.DataFrame(obs[idx[0], idx[1]])
-            tmp_df = tmp_df.fillna(method='bfill')
+
+            tmp_df.fillna(method='bfill', inplace=True)
+            tmp_df.fillna(method='ffill', inplace=True)
+
+            tmp_df.fillna(0, inplace=True)
+
             obs[idx[0], idx[1]] = tmp_df.values
 
         assert not np.isnan(obs).any(), 'still have nan not been filled'
         return obs
+
 
     def _get_masks(self, obs_states, future_ror):
         """

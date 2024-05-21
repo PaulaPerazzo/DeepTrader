@@ -113,3 +113,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
+
+# Data
+./data/ibovespa/
+/data/ibovespa/
+ibovespa
+
+# outputs
+0521
