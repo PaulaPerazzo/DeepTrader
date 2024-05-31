@@ -22,7 +22,7 @@ def run(func_args):
     data_prefix = './data/' + func_args.market + '/'
     matrix_path = data_prefix + func_args.relation_file
 
-    start_time = datetime.now().strftime('%m%d/%H:%M:%S')
+    start_time = datetime.now().strftime('%m%d/%H-%M-%S')
     if func_args.mode == 'train':
         PREFIX = 'outputs/'
         PREFIX = os.path.join(PREFIX, start_time)
@@ -85,6 +85,14 @@ def run(func_args):
             test_idx = 1944
             market_history = None
             allow_short = False
+        
+        elif func_args.market == 'ibovespa':
+            stocks_data = np.load(data_prefix + 'stocks_data.npy', allow_pickle=True)
+            rate_of_return = np.load(data_prefix + 'ror.npy', allow_pickle=True)
+            A = torch.from_numpy(np.load(matrix_path)).float().to(func_args.device)
+            test_idx = 1944
+            market_history = np.load(data_prefix + 'market_data.npy', allow_pickle=True)
+            allow_short = True
 
         env = PortfolioEnv(assets_data=stocks_data, market_data=market_history, rtns_data=rate_of_return,
                            in_features=func_args.in_features, val_idx=test_idx, test_idx=test_idx,

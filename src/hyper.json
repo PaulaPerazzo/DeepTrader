@@ -19,9 +19,9 @@
     "sigma": 0.5,
     "in_features": [
         6,
-        4
+        3
     ],
-    "num_assets": 30,
+    "num_assets": 302,
     "G": 4,
     "mode": "train",
     "num_rounds": 80000,
@@ -30,7 +30,7 @@
     "momentum": 0.8,
     "norm_type": "standard",
     "epochs": 1500,
-    "market": "DJIA",
+    "market": "ibovespa",
     "device": "cuda",
     "relation_file": "industry_classification.npy",
     "trade_len": 21
