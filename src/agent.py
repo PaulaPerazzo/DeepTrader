@@ -88,7 +88,7 @@ class RLAgent():
         self.optimizer = torch.optim.Adam(self.actor.parameters(),
                                           lr=args.lr,
                                           weight_decay=args.weight_decay)
-
+ #### 
     def train_episode(self):
         self.__set_train()
         EPS = 1e-10
@@ -110,35 +110,28 @@ class RLAgent():
             x_a = torch.from_numpy(states[0]).to(self.args.device)
             masks = torch.from_numpy(masks).to(self.args.device)
             if self.args.msu_bool:
-                # print('states',states[0][1])
                 x_m = torch.from_numpy(states[1]).to(self.args.device)
             else:
                 x_m = None
-            weights, rho, scores_p, log_p_rho \
-                = self.actor(x_a, x_m, masks, deterministic=False)
+            weights, rho, scores_p, log_p_rho = self.actor(x_a, x_m, masks, deterministic=False)
 
-            
             mean_ror = np.mean(self.env.ror, axis=-1, keepdims=True)
             mean_ror = np.nan_to_num(mean_ror, nan=0.0, posinf=0.0, neginf=0.0)
 
             std = np.std(self.env.ror, axis=-1, keepdims=True)
             std = np.nan_to_num(std, nan=0.0, posinf=0.0, neginf=0.0)
 
-            normed_ror = (self.env.ror - mean_ror) / (std)
+            normed_ror = (self.env.ror - mean_ror) / std
             normed_ror = np.nan_to_num(normed_ror, nan=0.0, posinf=0.0, neginf=0.0)
             normed_ror = torch.from_numpy(normed_ror).to(self.args.device)
 
-            next_states, rewards, rho_labels, masks, done, info = \
-                self.env.step(weights, rho.detach().cpu().numpy())
+            next_states, rewards, rho_labels, masks, done, info = self.env.step(weights, rho.detach().cpu().numpy())
 
             steps_log_p_rho.append(log_p_rho)
             steps_reward_total.append(rewards.total - info['market_avg_return'])
 
             asu_grad = torch.sum(normed_ror * scores_p, dim=-1)
-
             steps_asu_grad.append(torch.log(asu_grad))
-            steps_asu_grad_np = np.array([grad.detach().numpy() for grad in steps_asu_grad])
-            steps_asu_grad_np = np.nan_to_num(steps_asu_grad_np, nan=0.0, posinf=0.0, neginf=0.0)
 
             agent_wealth = np.concatenate((agent_wealth, info['total_value'][..., None]), axis=1)
             states = next_states
@@ -156,18 +149,18 @@ class RLAgent():
                 rewards_total = torch.from_numpy(steps_reward_total).to(self.args.device)
                 mdd = self.cal_MDD(agent_wealth)
 
-                rewards_mdd = - 2 * torch.from_numpy(mdd - 0.5).to(self.args.device)
+                rewards_mdd = -2 * torch.from_numpy(mdd - 0.5).to(self.args.device)
 
-                rewards_total = (rewards_total - torch.mean(rewards_total, dim=-1, keepdim=True)) \
-                                / torch.std(rewards_total, dim=-1, keepdim=True)
+                rewards_total = (rewards_total - torch.mean(rewards_total, dim=-1, keepdim=True)) / torch.std(rewards_total, dim=-1, keepdim=True)
 
-                gradient_asu = torch.stack(steps_asu_grad_np, dim=1)
+                # Manter tudo em tensores PyTorch
+                steps_asu_grad = torch.stack(steps_asu_grad, dim=1)
 
                 if self.args.msu_bool:
                     gradient_rho = (rewards_mdd * steps_log_p_rho)
-                    loss = - (self.args.gamma * gradient_rho + gradient_asu)
+                    loss = -(self.args.gamma * gradient_rho + steps_asu_grad)
                 else:
-                    loss = - (gradient_asu)
+                    loss = -steps_asu_grad
                 loss = loss.mean()
                 print('loss', loss)
 
@@ -183,6 +176,10 @@ class RLAgent():
         avg_rho = np.mean(rho_records)
         avg_mdd = mdd.mean()
         return rtns, avg_rho, avg_mdd
+
+
+#########
+
 
     def evaluation(self, logger=None):
         self.__set_test()
