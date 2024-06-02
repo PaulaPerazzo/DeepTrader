@@ -1,8 +1,8 @@
 Traceback (most recent call last):
-  File "/home/CIN/mpps/paulaperazzo/DeepTrader/src/run.py", line 170, in <module>
+  File "/home/CIN/mpps/paulaperazzo/DeepTrader/src/run.py", line 180, in <module>
     run(args)
-  File "/home/CIN/mpps/paulaperazzo/DeepTrader/src/run.py", line 90, in run
-    stocks_data = np.load(data_prefix + 'stocks_data.npy', allow_pickle=True)
+  File "/home/CIN/mpps/paulaperazzo/DeepTrader/src/run.py", line 92, in run
+    stocks_data = np.load(stocks_data, allow_pickle=True)
   File "/home/CIN/mpps/.local/lib/python3.10/site-packages/numpy/lib/npyio.py", line 427, in load
     fid = stack.enter_context(open(os_fspath(file), "rb"))
-FileNotFoundError: [Errno 2] No such file or directory: './data/ibovespa/stocks_data.npy'
+FileNotFoundError: [Errno 2] No such file or directory: '/home/CIN/mpps/paulaperazzo/DeepTrader/data/ibovespa/stocks_data.npy'
