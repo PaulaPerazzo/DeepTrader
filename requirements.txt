@@ -1,16 +1,15 @@
 # packages in environment at C:\Users\mpps\anaconda3:
 #
 # Name                    Version                   Build  Channel
-blas                     
+# blas                     
 certifi                   
-curl                     
+# curl                     
 flask                     
 gmpy2                     
 httplib2                  
 keras                     
 matplotlib                
-numpy                     
-numpy-base                
+numpy                               
 pandas                    
 scikit-image              
 scikit-learn              
