@@ -88,7 +88,7 @@ class RLAgent():
         self.optimizer = torch.optim.Adam(self.actor.parameters(),
                                           lr=args.lr,
                                           weight_decay=args.weight_decay)
- #### 
+    #### 
     def train_episode(self):
         self.__set_train()
         EPS = 1e-10
@@ -161,10 +161,23 @@ class RLAgent():
                     loss = -(self.args.gamma * gradient_rho + steps_asu_grad)
                 else:
                     loss = -steps_asu_grad
+
+                # Verificação de NaN antes do cálculo da média
+                if torch.isnan(loss).any():
+                    print("NaN detected in loss before mean")
+                    print("gradient_rho:", gradient_rho if self.args.msu_bool else "N/A")
+                    print("steps_asu_grad:", steps_asu_grad)
+                    print("rewards_mdd:", rewards_mdd)
+                    print("rewards_total:", rewards_total)
+                    raise ValueError("NaN detected in loss computation")
+
                 loss = loss.mean()
                 print('loss', loss)
 
-                assert not torch.isnan(loss)
+                if torch.isnan(loss):
+                    print("NaN detected in loss after mean")
+                    raise ValueError("NaN detected in loss computation")
+
                 self.optimizer.zero_grad()
                 loss = loss.contiguous()
                 loss.backward()
