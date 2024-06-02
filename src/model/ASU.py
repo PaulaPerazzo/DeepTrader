@@ -78,12 +78,8 @@ class SAGCN(nn.Module):
         super(SAGCN, self).__init__()
         self.dropout = dropout
         self.layers = layers
-        if spatial_bool:
-            self.gcn_bool = True
-            self.spatialattn_bool = True
-        else:
-            self.gcn_bool = False
-            self.spatialattn_bool = False
+        self.gcn_bool = spatial_bool
+        self.spatialattn_bool = spatial_bool
         self.addaptiveadj = addaptiveadj
 
         self.tcns = nn.ModuleList()
@@ -94,8 +90,7 @@ class SAGCN(nn.Module):
 
         self.supports = supports
 
-        self.start_conv = nn.Conv1d(in_features, hidden_dim, kernel_size=(1, 1))
-
+        self.start_conv = nn.Conv2d(in_features, hidden_dim, kernel_size=(1, 1))
         self.bn_start = nn.BatchNorm2d(hidden_dim)
 
         receptive_field = 1
@@ -109,7 +104,6 @@ class SAGCN(nn.Module):
                     self.supports = []
                 self.nodevec = nn.Parameter(torch.randn(num_nodes, 1), requires_grad=True)
                 self.supports_len += 1
-
             else:
                 raise NotImplementedError
 
@@ -117,20 +111,16 @@ class SAGCN(nn.Module):
         a_s_records = []
         dilation = 1
         for l in range(layers):
-            tcn_sequence = nn.Sequential(nn.Conv1d(in_channels=hidden_dim,
-                                                   out_channels=hidden_dim,
-                                                   kernel_size=(1, kernel_size),
-                                                   dilation=dilation),
-                                         nn.ReLU(),
-                                         nn.Dropout(dropout),
-                                         nn.BatchNorm2d(hidden_dim))
+            tcn_sequence = nn.Sequential(
+                nn.Conv2d(hidden_dim, hidden_dim, kernel_size=(1, kernel_size), dilation=(1, dilation)),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.BatchNorm2d(hidden_dim)
+            )
 
             self.tcns.append(tcn_sequence)
 
-            self.residual_convs.append(nn.Conv1d(in_channels=hidden_dim,
-                                                 out_channels=hidden_dim,
-                                                 kernel_size=(1, 1)))
-
+            self.residual_convs.append(nn.Conv2d(hidden_dim, hidden_dim, kernel_size=(1, 1)))
             self.bns.append(nn.BatchNorm2d(hidden_dim))
 
             if self.gcn_bool:
@@ -147,23 +137,25 @@ class SAGCN(nn.Module):
                 self.sans.append(SpatialAttentionLayer(num_nodes, hidden_dim, receptive_field - a_s_records[i]))
                 receptive_field -= a_s_records[i]
 
+
     def forward(self, X):
-        X = X.permute(0, 3, 1, 2)  # [batch, feature, stocks, length]
+        # Reorganize as dimensões para [batch, feature, stocks, length]
+        X = X.permute(0, 3, 1, 2)
+        print(f'After permute: {X.shape}')  # Debug
+        
         in_len = X.shape[3]
-        if in_len < self.receptive_field:
+        if (in_len < self.receptive_field):
             x = nn.functional.pad(X, (self.receptive_field - in_len, 0, 0, 0))
         else:
             x = X
+        print(f'After padding: {x.shape}')  # Debug
+
         assert not torch.isnan(x).any()
 
-        # Reshape o tensor para as dimensões corretas [batch, channels, sequence_length]
-        batch_size, features, stocks, length = x.shape
-        x = x.view(batch_size * stocks, features, length)
-
+        # Aplicar start_conv e batch normalization
         x = self.bn_start(self.start_conv(x))
+        print(f'After start_conv and bn_start: {x.shape}')  # Debug
 
-        # Reshape de volta para a forma original, se necessário
-        x = x.view(batch_size, stocks, -1, length)
         new_supports = None
         if self.gcn_bool and self.addaptiveadj and self.supports is not None:
             adp_matrix = torch.softmax(torch.relu(torch.mm(self.nodevec, self.nodevec.t())), dim=0)
@@ -172,6 +164,7 @@ class SAGCN(nn.Module):
         for i in range(self.layers):
             residual = self.residual_convs[i](x)
             x = self.tcns[i](x)
+            
             if self.gcn_bool and self.supports is not None:
                 if self.addaptiveadj:
                     x = self.gcns[i](x, new_supports)
@@ -183,7 +176,6 @@ class SAGCN(nn.Module):
                 x = torch.einsum('bnm, bfml->bfnl', (attn_weights, x))
 
             x = x + residual[:, :, :, -x.shape[3]:]
-
             x = self.bns[i](x)
 
         # (batch, num_nodes, hidden_dim)
