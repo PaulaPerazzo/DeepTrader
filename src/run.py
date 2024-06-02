@@ -87,11 +87,21 @@ def run(func_args):
             allow_short = False
         
         elif func_args.market == 'ibovespa':
-            stocks_data = np.load(data_prefix + 'stocks_data.npy', allow_pickle=True)
-            rate_of_return = np.load(data_prefix + 'ror.npy', allow_pickle=True)
+            stocks_data = data_prefix + 'stocks_data.npy'
+            stocks_data = os.path.abspath(stocks_data)
+            stocks_data = np.load(stocks_data, allow_pickle=True)
+
+            rate_of_return = data_prefix + 'ror.npy'
+            rate_of_return = os.path.abspath(rate_of_return)
+            rate_of_return = np.load(rate_of_return, allow_pickle=True)
+
             A = torch.from_numpy(np.load(matrix_path)).float().to(func_args.device)
             test_idx = 1944
-            market_history = np.load(data_prefix + 'market_data.npy', allow_pickle=True)
+
+            market_history = data_prefix + 'market_data.npy'
+            market_history = os.path.abspath(market_history)
+            market_history = np.load(market_history, allow_pickle=True)
+    
             allow_short = True
 
         env = PortfolioEnv(assets_data=stocks_data, market_data=market_history, rtns_data=rate_of_return,
