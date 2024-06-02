@@ -156,7 +156,14 @@ class SAGCN(nn.Module):
             x = X
         assert not torch.isnan(x).any()
 
+        # Reshape o tensor para as dimensões corretas [batch, channels, sequence_length]
+        batch_size, features, stocks, length = x.shape
+        x = x.view(batch_size * stocks, features, length)
+
         x = self.bn_start(self.start_conv(x))
+
+        # Reshape de volta para a forma original, se necessário
+        x = x.view(batch_size, stocks, -1, length)
         new_supports = None
         if self.gcn_bool and self.addaptiveadj and self.supports is not None:
             adp_matrix = torch.softmax(torch.relu(torch.mm(self.nodevec, self.nodevec.t())), dim=0)
