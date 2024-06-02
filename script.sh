@@ -7,6 +7,6 @@
 #SBATCH --output=job_output.txt
 #SBATCH --error=job_error.txt
 
-source /env/bin/activate
+source env/bin/activate
 
-python3 src/run.py -c hyper.json
+python3 src/run.py -c src/hyper.json
