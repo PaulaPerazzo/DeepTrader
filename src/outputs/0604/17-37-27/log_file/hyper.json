@@ -10,9 +10,9 @@
     "max_steps": 12,
     "gamma": 0.05,
     "tau": 0.001,
-    "batch_size": 37,
+    "batch_size": 74,
     "use_gpu": true,
-    "addaptiveadj":true,
+    "addaptiveadj": true,
     "trade_mode": "M",
     "fee": 0.001,
     "theta": 0.15,
@@ -31,8 +31,12 @@
     "norm_type": "standard",
     "epochs": 150,
     "market": "ibovespa",
-    "device": "cuda",
+    "device": "cpu",
     "relation_file": "industry_classification.npy",
     "trade_len": 21,
-    "msu_bool": true
+    "msu_bool": true,
+    "config": ".\\hyper.json",
+    "seed": -1,
+    "spatial_bool": true,
+    "addaptive_adj_bool": true
 }

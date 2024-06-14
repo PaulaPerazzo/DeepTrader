@@ -6,7 +6,7 @@ import pandas as pd
 
 Reward = namedtuple('Reward', ('total', 'long', 'short'))
 
-EPS = 1e-20
+EPS = 1e-10
 
 
 class DataGenerator():
@@ -82,6 +82,8 @@ class DataGenerator():
         future_ror[future_return_masks] = 0.
         future_p = self.__get_p(future_return)
 
+        print(np.isnan(obs).any())
+        print(np.isnan(obs_normed).any())
         assert not np.isnan(obs + obs_normed).any()
 
         self.cursor += self.trade_len
@@ -174,7 +176,6 @@ class DataGenerator():
         future_return = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.trade_len))
         past_return = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.window_len))
         for i, idx in enumerate(self.cursor):
-            print('idx', idx)
             raw_states[i] = self.__assets_data[:, idx - (self.window_len + 1) * 5 + 1:idx + 1].copy()
             tmp_states = raw_states.reshape(raw_states.shape[0], raw_states.shape[1], self.window_len + 1, 5, -1)
             assets_states[i, :, :, 0] = tmp_states[i, :, 1:, -1, 0] / tmp_states[i, :, :-1, -1, 0]
@@ -187,10 +188,6 @@ class DataGenerator():
                 assets_states[i, :, :, 5] = np.nanmean(tmp_states[i, :, 1:, :, 5], axis=-1)
             if self.allow_short:
                 tmp_states = self.__market_data[idx - (self.window_len) * 5 + 1:idx + 1].reshape(self.window_len, 5, -1)
-                print('idx', idx)
-                print('i', i)
-                print('tmp_states', tmp_states)
-                print(self.__market_data)
                 tmp_states = tmp_states.astype(float)
                 market_states[i] = np.mean(tmp_states, axis=1)
             future_return[i] = self.__ror_data[:, idx + 1:min(idx + 1 + self.trade_len, self.__ror_data.shape[-1])]
@@ -235,9 +232,13 @@ class DataGenerator():
 
     def __normalize_assets(self, inputs, masks):
         if self.norm_type == 'standard':
+            inputs = np.nan_to_num(inputs)
             x_mean = np.mean(inputs, axis=-2, keepdims=True)
             x_std = np.std(inputs, axis=-2, keepdims=True)
             normed = (inputs - x_mean) / (x_std + EPS)
+            print('normed', np.isnan((inputs-x_mean)).any())
+            print('normed', np.isnan(normed).any())
+            normed = np.nan_to_num(normed)
         elif self.norm_type == 'min-max':
             x_max = np.max(inputs, axis=-2, keepdims=True)
             x_min = np.min(inputs, axis=-2, keepdims=True)
@@ -443,6 +444,7 @@ class PortfolioEnv(object):
         self.sim = PortfolioSim(num_assets=self.num_assets, fee=fee, time_cost=time_cost, allow_short=allow_short)
 
     def step(self, action, p, simulation=False):
+        print("p", p)
         weights = action
         if simulation:
             raise NotImplementedError

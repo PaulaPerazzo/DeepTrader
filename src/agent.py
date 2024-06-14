@@ -25,44 +25,57 @@ class RLActor(nn.Module):
                        spatial_bool=args.spatial_bool,
                        addaptiveadj=args.addaptiveadj)
         if args.msu_bool:
+            # print("MSU is used")
             self.msu = MSU(in_features=args.in_features[1],
                            window_len=args.window_len,
                            hidden_dim=args.hidden_dim)
         self.args = args
+        # print(args)
 
     def forward(self, x_a, x_m, masks=None, deterministic=False, logger=None, y=None):
         scores = self.asu(x_a, masks)
         if self.args.msu_bool:
+            # print("x_m:", x_m)
             res = self.msu(x_m)
+            # print("res", res)
         else:
             res = None
         return self.__generator(scores, res, deterministic)
 
+
     def __generator(self, scores, res, deterministic=None):
+        print("Initial res:", res)
+        
         weights = np.zeros((scores.shape[0], 2 * scores.shape[1]))
 
         winner_scores = scores
         loser_scores = scores.sign() * (1 - scores)
 
         scores_p = torch.softmax(scores, dim=-1)
+        # print("scores_p:", scores_p)
 
-        # winners_log_p = torch.log_softmax(winner_scores, dim=-1)
         w_s, w_idx = torch.topk(winner_scores.detach(), self.args.G)
+        # print("w_s:", w_s, "w_idx:", w_idx)
 
         long_ratio = torch.softmax(w_s, dim=-1)
+        # print("long_ratio:", long_ratio)
 
         for i, indice in enumerate(w_idx):
             weights[i, indice.detach().cpu().numpy()] = long_ratio[i].cpu().numpy()
 
         l_s, l_idx = torch.topk(loser_scores.detach(), self.args.G)
+        # print("l_s:", l_s, "l_idx:", l_idx)
 
-        short_ratio = torch.softmax(l_s.detach(), dim=-1)
+        short_ratio = torch.softmax(l_s, dim=-1)
         for i, indice in enumerate(l_idx):
             weights[i, indice.detach().cpu().numpy() + scores.shape[1]] = short_ratio[i].cpu().numpy()
 
         if self.args.msu_bool:
+            print("res:", res)
             mu = res[..., 0]
+            print("mu:", mu)
             sigma = torch.log(1 + torch.exp(res[..., 1]))
+            # print("mu:", mu, "sigma:", sigma)
             if deterministic:
                 rho = torch.clamp(mu, 0.0, 1.0)
                 rho_log_p = None
@@ -71,10 +84,12 @@ class RLActor(nn.Module):
                 sample_rho = m.sample()
                 rho = torch.clamp(sample_rho, 0.0, 1.0)
                 rho_log_p = m.log_prob(sample_rho)
+            # print("rho:", rho)
         else:
             rho = torch.ones((weights.shape[0])).to(self.args.device) * 0.5
             rho_log_p = None
         return weights, rho, scores_p, rho_log_p
+
 
 
 class RLAgent():
@@ -103,6 +118,7 @@ class RLAgent():
         rho_records = []
 
         agent_wealth = np.ones((batch_size, 1), dtype=np.float32)
+        print("agent_wealth1:", agent_wealth)
 
         while True:
             steps += 1
@@ -122,13 +138,25 @@ class RLAgent():
             next_states, rewards, rho_labels, masks, done, info = \
                 self.env.step(weights, rho.detach().cpu().numpy())
 
+            rewards_total = rewards.total
+            rewards_total = np.nan_to_num(rewards_total)
+            info_mkt = info['market_avg_return']
+            info_mkt = np.nan_to_num(info_mkt)
+
             steps_log_p_rho.append(log_p_rho)
-            steps_reward_total.append(rewards.total - info['market_avg_return'])
 
+            steps_reward_total.append(rewards_total - info_mkt)
+
+            normed_ror = torch.where(torch.isnan(normed_ror), torch.zeros_like(normed_ror), normed_ror)
             asu_grad = torch.sum(normed_ror * scores_p, dim=-1)
-            steps_asu_grad.append(torch.log(asu_grad))
+            log_asu_grad = torch.where(torch.isnan(asu_grad), torch.zeros_like(asu_grad), asu_grad)
+            log_asu_grad = torch.where(log_asu_grad==float('inf'), torch.full_like(log_asu_grad, 1e6), log_asu_grad)
+            log_asu_grad = torch.where(log_asu_grad==float('-inf'), torch.zeros_like(log_asu_grad), log_asu_grad)
+            steps_asu_grad.append(log_asu_grad)
 
-            agent_wealth = np.concatenate((agent_wealth, info['total_value'][..., None]), axis=1)
+            agent_wealth = np.nan_to_num(agent_wealth)
+            info_total_value = np.nan_to_num(info['total_value'])
+            agent_wealth = np.concatenate((agent_wealth, info_total_value[..., None]), axis=1)
             states = next_states
 
             rho_records.append(np.mean(rho.detach().cpu().numpy()))
@@ -138,23 +166,30 @@ class RLAgent():
                     steps_log_p_rho = torch.stack(steps_log_p_rho, dim=-1)
 
                 steps_reward_total = np.array(steps_reward_total).transpose((1, 0))
-
                 rewards_total = torch.from_numpy(steps_reward_total).to(self.args.device)
                 mdd = self.cal_MDD(agent_wealth)
-
+                mdd = np.nan_to_num(mdd)
                 rewards_mdd = - 2 * torch.from_numpy(mdd - 0.5).to(self.args.device)
 
                 rewards_total = (rewards_total - torch.mean(rewards_total, dim=-1, keepdim=True)) \
                                 / torch.std(rewards_total, dim=-1, keepdim=True)
+                rewards_total = torch.where(rewards_total==float('inf'), torch.full_like(rewards_total, 1e6), rewards_total)
+                rewards_total = torch.where(rewards_total==float('-inf'), torch.zeros_like(rewards_total), rewards_total)
+                # print("rewards_total:", rewards_total)
 
                 gradient_asu = torch.stack(steps_asu_grad, dim=1)
 
                 if self.args.msu_bool:
                     gradient_rho = (rewards_mdd * steps_log_p_rho)
+                    gradient_rho = torch.where(gradient_rho==float('inf'), torch.full_like(gradient_rho, 1e6), gradient_rho)
+                    gradient_rho = torch.where(gradient_rho==float('-inf'), torch.zeros_like(gradient_rho), gradient_rho)
+
                     loss = - (self.args.gamma * gradient_rho + gradient_asu)
+                    print("loss:", loss)
                 else:
                     loss = - (gradient_asu)
                 loss = loss.mean()
+                print("loss mean:", loss)
                 assert not torch.isnan(loss)
                 self.optimizer.zero_grad()
                 loss = loss.contiguous()

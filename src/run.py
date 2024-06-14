@@ -90,10 +90,9 @@ def run(func_args):
             stocks_data = np.load(data_prefix + 'stocks_data.npy', allow_pickle=True)
             rate_of_return = np.load(data_prefix + 'ror.npy', allow_pickle=True)
             market_history = np.load(data_prefix + 'market_data.npy', allow_pickle=True)
-            print(stocks_data.shape, rate_of_return.shape, market_history.shape)
             assert stocks_data.shape[:-1] == rate_of_return.shape, 'file size error'
             A = torch.from_numpy(np.load(matrix_path)).float().to(func_args.device)
-            test_idx = 4211
+            test_idx = 1944
             allow_short = True
 
         env = PortfolioEnv(assets_data=stocks_data, market_data=market_history, rtns_data=rate_of_return,
