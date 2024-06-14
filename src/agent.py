@@ -44,7 +44,7 @@ class RLActor(nn.Module):
 
 
     def __generator(self, scores, res, deterministic=None):
-        print("Initial res:", res)
+        # print("Initial res:", res)
         
         weights = np.zeros((scores.shape[0], 2 * scores.shape[1]))
 
@@ -71,9 +71,9 @@ class RLActor(nn.Module):
             weights[i, indice.detach().cpu().numpy() + scores.shape[1]] = short_ratio[i].cpu().numpy()
 
         if self.args.msu_bool:
-            print("res:", res)
+            # print("res:", res)
             mu = res[..., 0]
-            print("mu:", mu)
+            # print("mu:", mu)
             sigma = torch.log(1 + torch.exp(res[..., 1]))
             # print("mu:", mu, "sigma:", sigma)
             if deterministic:
@@ -118,7 +118,7 @@ class RLAgent():
         rho_records = []
 
         agent_wealth = np.ones((batch_size, 1), dtype=np.float32)
-        print("agent_wealth1:", agent_wealth)
+        # print("agent_wealth1:", agent_wealth)
 
         while True:
             steps += 1
@@ -185,11 +185,11 @@ class RLAgent():
                     gradient_rho = torch.where(gradient_rho==float('-inf'), torch.zeros_like(gradient_rho), gradient_rho)
 
                     loss = - (self.args.gamma * gradient_rho + gradient_asu)
-                    print("loss:", loss)
+                    # print("loss:", loss)
                 else:
                     loss = - (gradient_asu)
                 loss = loss.mean()
-                print("loss mean:", loss)
+                # print("loss mean:", loss)
                 assert not torch.isnan(loss)
                 self.optimizer.zero_grad()
                 loss = loss.contiguous()

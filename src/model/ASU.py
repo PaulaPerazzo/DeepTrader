@@ -165,23 +165,23 @@ class SAGCN(nn.Module):
         for i in range(self.layers):
             residual = self.residual_convs[i](x)
             x = self.tcns[i](x)
-            print(f"Layer {i}, x after TCN: {x.shape}")
-            print(f"Layer {i}, residual: {residual.shape}")
+            # print(f"Layer {i}, x after TCN: {x.shape}")
+            # print(f"Layer {i}, residual: {residual.shape}")
             
             if self.gcn_bool and self.supports is not None:
                 if self.addaptiveadj:
-                    print(f"new_supports {len(new_supports)}")
-                    print(f"x before GCN: {x.shape}")
+                    # print(f"new_supports {len(new_supports)}")
+                    # print(f"x before GCN: {x.shape}")
                     x = self.gcns[i](x, new_supports)
-                    print(f"x after GCN: {x.shape}")
+                    # print(f"x after GCN: {x.shape}")
                 else:
                     x = self.gcns[i](x, self.supports)
 
             if self.spatialattn_bool:
                 attn_weights = self.sans[i](x)
-                print(f"attn_weights: {attn_weights.shape}")
+                # print(f"attn_weights: {attn_weights.shape}")
                 x = torch.einsum('bnm, bfml->bfnl', (attn_weights, x))
-                print(f"x after spatial attention: {x.shape}")
+                # print(f"x after spatial attention: {x.shape}")
 
             # Ensure the dimensions match before combining x and residual
             min_length = min(x.shape[3], residual.shape[3])
@@ -190,7 +190,7 @@ class SAGCN(nn.Module):
             x = x + residual
 
             x = self.bns[i](x)
-            print(f"x after batch norm: {x.shape}")
+            # print(f"x after batch norm: {x.shape}")
 
         # (batch, num_nodes, hidden_dim)
         return x.squeeze(-1).permute(0, 2, 1)

@@ -82,8 +82,8 @@ class DataGenerator():
         future_ror[future_return_masks] = 0.
         future_p = self.__get_p(future_return)
 
-        print(np.isnan(obs).any())
-        print(np.isnan(obs_normed).any())
+        # print(np.isnan(obs).any())
+        # print(np.isnan(obs_normed).any())
         assert not np.isnan(obs + obs_normed).any()
 
         self.cursor += self.trade_len
@@ -170,7 +170,7 @@ class DataGenerator():
         assets_states = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.window_len, self.assets_features))
         if self.allow_short:
             market_states = np.zeros((len(self.cursor), self.window_len, self.market_features))
-            print('oi', market_states.shape)
+            # print('oi', market_states.shape)
         else:
             market_states = None
         future_return = np.zeros((len(self.cursor), self.__assets_data.shape[0], self.trade_len))
@@ -236,8 +236,8 @@ class DataGenerator():
             x_mean = np.mean(inputs, axis=-2, keepdims=True)
             x_std = np.std(inputs, axis=-2, keepdims=True)
             normed = (inputs - x_mean) / (x_std + EPS)
-            print('normed', np.isnan((inputs-x_mean)).any())
-            print('normed', np.isnan(normed).any())
+            # print('normed', np.isnan((inputs-x_mean)).any())
+            # print('normed', np.isnan(normed).any())
             normed = np.nan_to_num(normed)
         elif self.norm_type == 'min-max':
             x_max = np.max(inputs, axis=-2, keepdims=True)
@@ -444,7 +444,7 @@ class PortfolioEnv(object):
         self.sim = PortfolioSim(num_assets=self.num_assets, fee=fee, time_cost=time_cost, allow_short=allow_short)
 
     def step(self, action, p, simulation=False):
-        print("p", p)
+        # print("p", p)
         weights = action
         if simulation:
             raise NotImplementedError

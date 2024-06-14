@@ -20,7 +20,7 @@ class MSU(nn.Module):
     def forward(self, X):
         # Verificar valores 'nan' nos inputs e substituí-los por zeros
         if torch.any(torch.isnan(X)):
-            print("Valores 'nan' encontrados nos inputs antes da normalização")
+            # print("Valores 'nan' encontrados nos inputs antes da normalização")
             X = torch.where(torch.isnan(X), torch.zeros_like(X), X)
         
         # Normalização de dados
@@ -30,7 +30,7 @@ class MSU(nn.Module):
             raise ValueError("Valores 'nan' encontrados nos inputs após normalização")
 
         X = X.permute(1, 0, 2)
-        print("Input X2:", X)
+        # print("Input X2:", X)
 
         try:
             outputs, (h_n, c_n) = self.lstm(X)
@@ -40,7 +40,7 @@ class MSU(nn.Module):
                 c_n = torch.where(torch.isnan(c_n), torch.zeros_like(c_n), c_n)
                 # raise ValueError("Valores 'nan' encontrados após a LSTM")
         except ValueError as e:
-            print(f'Erro detectado: {e}')
+            # print(f'Erro detectado: {e}')
             return outputs, h_n, c_n
 
         H_n = h_n.repeat((self.window_len, 1, 1))
@@ -72,7 +72,7 @@ class MSU(nn.Module):
 
         if torch.any(torch.isnan(parameters)):
             parameters = torch.where(torch.isnan(parameters), torch.zeros_like(parameters), parameters)
-            print("Valores 'nan' encontrados nos parâmetros finais")
+            # print("Valores 'nan' encontrados nos parâmetros finais")
             # raise ValueError("Valores 'nan' encontrados nos parâmetros finais")
 
         return parameters.squeeze(-1)
@@ -98,4 +98,4 @@ if __name__ == '__main__':
     net.apply(init_weights)
     
     b = net(tensor)
-    print(b)
+    # print(b)
