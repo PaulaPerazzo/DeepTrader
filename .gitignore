@@ -117,7 +117,7 @@ dmypy.json
 # Data
 ./data/ibovespa/
 /data/ibovespa/
-ibovespa
+# ibovespa
 
 # outputs
 0521
