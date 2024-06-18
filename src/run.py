@@ -19,7 +19,8 @@ def run(func_args):
     if func_args.seed != -1:
         setup_seed(func_args.seed)
 
-    data_prefix = 'src/data/' + func_args.market + '/'
+    # data_prefix = 'src/data/' + func_args.market + '/'
+    data_prefix = './data/' + func_args.market + '/'
     matrix_path = data_prefix + func_args.relation_file
 
     start_time = datetime.now().strftime('%m%d/%H-%M-%S')
