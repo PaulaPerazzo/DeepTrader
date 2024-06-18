@@ -74,7 +74,6 @@ class SAGCN(nn.Module):
     def __init__(self, num_nodes, in_features, hidden_dim, window_len,
                  dropout=0.3, kernel_size=2, layers=4, supports=None,
                  spatial_bool=True, addaptiveadj=True, aptinit=None):
-
         super(SAGCN, self).__init__()
         self.dropout = dropout
         self.layers = layers
@@ -94,7 +93,7 @@ class SAGCN(nn.Module):
 
         self.supports = supports
 
-        self.start_conv = nn.Conv1d(in_features, hidden_dim, kernel_size=(1, 1))
+        self.start_conv = nn.Conv2d(in_channels=in_features, out_channels=hidden_dim, kernel_size=(1, 1))
 
         self.bn_start = nn.BatchNorm2d(hidden_dim)
 
@@ -117,17 +116,17 @@ class SAGCN(nn.Module):
         a_s_records = []
         dilation = 1
         for l in range(layers):
-            tcn_sequence = nn.Sequential(nn.Conv1d(in_channels=hidden_dim,
+            tcn_sequence = nn.Sequential(nn.Conv2d(in_channels=hidden_dim,
                                                    out_channels=hidden_dim,
                                                    kernel_size=(1, kernel_size),
-                                                   dilation=dilation),
+                                                   dilation=(1, dilation)),
                                          nn.ReLU(),
                                          nn.Dropout(dropout),
                                          nn.BatchNorm2d(hidden_dim))
 
             self.tcns.append(tcn_sequence)
 
-            self.residual_convs.append(nn.Conv1d(in_channels=hidden_dim,
+            self.residual_convs.append(nn.Conv2d(in_channels=hidden_dim,
                                                  out_channels=hidden_dim,
                                                  kernel_size=(1, 1)))
 
@@ -148,14 +147,17 @@ class SAGCN(nn.Module):
                 receptive_field -= a_s_records[i]
 
     def forward(self, X):
+        # print(f"X before permute: {X.shape}")
         X = X.permute(0, 3, 1, 2)  # [batch, feature, stocks, length]
         in_len = X.shape[3]
+        
         if in_len < self.receptive_field:
             x = nn.functional.pad(X, (self.receptive_field - in_len, 0, 0, 0))
         else:
             x = X
         assert not torch.isnan(x).any()
 
+        # print(f"x after start conv: {x.shape}")
         x = self.bn_start(self.start_conv(x))
         new_supports = None
         if self.gcn_bool and self.addaptiveadj and self.supports is not None:
